@@ -29,7 +29,7 @@
 
 #include <wx/filename.h>
 #include <wx/stdpaths.h>
-#include <wx/generic/progdlgg.h>
+#include <wx/progdlg.h>
 
 #include <iostream>
 

@@ -1658,7 +1658,7 @@ bool s57chart::RenderRegionViewOnDC(wxMemoryDC& dc, const ViewPort& VPoint, cons
 {
       bool force_new_view = false;
 
-      if(Region != m_last_Region)
+      if(&Region != &m_last_Region)
             force_new_view = true;
 
       ps52plib->PrepareForRender();
@@ -4789,7 +4789,7 @@ void s57chart::CreateSENCRecord( OGRFeature *pFeature, FILE * fpOut, int mode, S
             sheader += wxString(line, wxConvUTF8);
         }
 
-        fprintf( fpOut, "HDRLEN=%d\n", sheader.Len());
+        fprintf( fpOut, "HDRLEN=%d\n", (int)sheader.Len());
         fwrite(sheader.mb_str(), 1, sheader.Len(), fpOut);
 
         if(( pGeo != NULL ) /*&& (mode == 1)*/)

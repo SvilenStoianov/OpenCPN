@@ -282,11 +282,11 @@ int DDFRecord::Write()
 
     memset( szLeader, ' ', nLeaderSize );
 
-    sprintf( szLeader+0, "%05d", nDataSize + nLeaderSize );
+    sprintf( szLeader+0, "%05d", (int)(nDataSize + nLeaderSize) );
     szLeader[5] = ' ';
     szLeader[6] = 'D';
     
-    sprintf( szLeader + 12, "%05d", nFieldOffset + nLeaderSize );
+    sprintf( szLeader + 12, "%05d", (int)(nFieldOffset + nLeaderSize) );
     szLeader[17] = ' ';
 
     szLeader[20] = (char) ('0' + _sizeFieldLength);

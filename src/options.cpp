@@ -36,7 +36,7 @@
 #include <wx/wx.h>
 #endif
 
-#include "wx/generic/progdlgg.h"
+#include "wx/progdlg.h"
 #include "wx/sound.h"
 #include <wx/radiobox.h>
 #include <wx/listbox.h>

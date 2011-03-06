@@ -219,7 +219,7 @@ int dashboard_pi::Init(void)
             _("Dashboard"), _T(""), NULL, DASHBOARD_TOOL_POSITION, 0, this);
 
       m_pdashboard_window = new DashboardWindow(GetOCPNCanvasWindow(), wxID_ANY, m_pauimgr, m_toolbar_item_id);
-      m_pauimgr->AddPane(m_pdashboard_window, wxAuiPaneInfo().Name(_T("Dashboard")).Caption(_("Dashboard")).CaptionVisible(true).Float().FloatingPosition(0,0).TopDockable(false).BottomDockable(false).Show(false));
+      m_pauimgr->AddPane(m_pdashboard_window, wxAuiPaneInfo().Name(_T("Dashboard")).Caption(_("Dashboard")).CaptionVisible(true).Float().FloatingPosition(20,100).TopDockable(false).BottomDockable(false).Show(false));
       m_pauimgr->Update();
       ApplyConfig();
       
@@ -1193,7 +1193,7 @@ void DashboardWindow::SetInstrumentList(wxArrayInt list)
       for (size_t i = 0; i < list.GetCount(); i++)
       {
             int id = list.Item(i);
-            DashboardInstrument *instrument;
+            DashboardInstrument *instrument = 0;
             switch (id)
             {
             case ID_DBP_I_POS:

@@ -54,8 +54,8 @@ CSyncSerialComm::~CSyncSerialComm()
 //////////////////////////////////////////////////////////////////////
 int CSyncSerialComm::Open()
 {
-    int				handshake;
-    struct termios	options;
+//    int				handshake;
+//    struct termios	options;
     m_fileDescriptor = -1;
 
     // Open the serial port read/write, with no controlling terminal, and don't wait for a connection.
@@ -150,6 +150,7 @@ int CSyncSerialComm::Close()
     close(m_fileDescriptor);
 	m_fileDescriptor = -1 ;
     }
+	return 0;
 }
 
 //////////////////////////////////////////////////////////////////////
