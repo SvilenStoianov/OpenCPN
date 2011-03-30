@@ -14,6 +14,7 @@ MESSAGE (STATUS "*** Building PlugIns ***")
 add_subdirectory (grib_pi)
 #add_subdirectory (demo_pi/src)
 add_subdirectory (dashboard_pi)
+add_subdirectory (wmm_pi)
 #add_subdirectory (celestial_navigation_pi/src)
 
 
