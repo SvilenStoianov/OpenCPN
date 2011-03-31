@@ -580,6 +580,7 @@ IF(UNIX)
   INSTALL(FILES src/bitmaps/other_svg_src/opencpn.svg DESTINATION ${PREFIX_DATA}/icons/hicolor/scalable/apps )
   INSTALL(FILES data/opencpn.desktop DESTINATION ${PREFIX_DATA}/applications )
 ENDIF(UNIX)
+ENDIF(NOT APPLE)
 
 #  Fix up time_t definition
 # Checks for 32-bit version. And always use 32-bit time_t for compatibility
@@ -651,7 +652,7 @@ MACRO(GETTEXT_BUILD_MO _poFile _lang)
    )
 
 IF(APPLE)
-   INSTALL(FILES ${_gmoFile} DESTINATION ${CMAKE_HOME_DIRECTORY}/OpenCPN.app/Contents/Resources/${_lang}.lproj RENAME ${PACKAGE_NAME}.mo )
+   INSTALL(FILES ${_gmoFile} DESTINATION ${CMAKE_BINARY_DIR}/OpenCPN.app/Contents/Resources/${_lang}.lproj RENAME ${PACKAGE_NAME}.mo )
 ELSE(APPLE)
    INSTALL(FILES ${_gmoFile} DESTINATION ${PREFIX_DATA}/locale/${_lang}/LC_MESSAGES RENAME ${PACKAGE_NAME}.mo )
 ENDIF(APPLE)
@@ -681,7 +682,6 @@ ADD_CUSTOM_TARGET(i18n COMMENT "i18n: Done." DEPENDS ${_gmoFiles})
 ADD_DEPENDENCIES(${PACKAGE_NAME} i18n)
 ENDIF(GETTEXT_MSGFMT_EXECUTABLE)
 
-ENDIF(NOT APPLE)
 
 
 # On Windows builds, copy the wxWidgets dlls and  to the executable directory
@@ -811,4 +811,3 @@ INCLUDE(CPack)
 
 MESSAGE(STATUS "Writing spec file...")
 
- 	  	 
