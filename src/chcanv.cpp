@@ -138,6 +138,7 @@ extern wxString         g_AW2GUID;
 
 extern RouteManagerDialog *pRouteManagerDialog;
 extern GoToPositionDialog *pGoToPositionDialog;
+extern wxString GetLayerName(int id);
 
 extern bool             bDrawCurrentValues;
 extern wxString         *pWVS_Locn;
@@ -6315,7 +6316,7 @@ void ChartCanvas::MouseEvent ( wxMouseEvent& event )
                         double nearby_radius_meters = nearby_sel_rad_pix / m_true_scale_ppm;
 
                         RoutePoint *pNearbyPoint = pWayPointMan->GetNearbyWaypoint(rlat, rlon, nearby_radius_meters);
-                        if(pNearbyPoint && (pNearbyPoint != m_prev_pMousePoint) && !pNearbyPoint->m_bIsInTrack)     // pjotrc 2010.02.13
+                        if(pNearbyPoint && (pNearbyPoint != m_prev_pMousePoint) && !pNearbyPoint->m_bIsInTrack && !pNearbyPoint->m_bIsInLayer)     // pjotrc 2010.02.13
                         {
                               wxMessageDialog near_point_dlg(this, _("Use nearby waypoint?"), _("OpenCPN Route Create"), (long)wxYES_NO | wxCANCEL | wxYES_DEFAULT);
                               int dlg_return = near_point_dlg.ShowModal();
@@ -6460,6 +6461,9 @@ void ChartCanvas::MouseEvent ( wxMouseEvent& event )
                    if(m_pRoutePointEditTarget && (m_pRoutePointEditTarget->m_IconName == _T("mob")))
                          DraggingAllowed = false;
 
+                   if (m_pRoutePointEditTarget->m_bIsInLayer)
+                         DraggingAllowed = false;
+
                    if (DraggingAllowed)
                    {
 
@@ -6535,6 +6539,9 @@ void ChartCanvas::MouseEvent ( wxMouseEvent& event )
                             DraggingAllowed = false;
 
                       if(m_pRoutePointEditTarget && (m_pRoutePointEditTarget->m_IconName == _T("mob")))
+                            DraggingAllowed = false;
+
+                      if (m_pRoutePointEditTarget->m_bIsInLayer)
                             DraggingAllowed = false;
 
                       if (DraggingAllowed)
@@ -7436,7 +7443,7 @@ void ChartCanvas::PopupMenuHandler ( wxCommandEvent& event )
                        if (m_pFoundRoutePoint == pAnchorWatchPoint1) pAnchorWatchPoint1 = NULL;       // pjotrc 2010.02.15
                        else if (m_pFoundRoutePoint == pAnchorWatchPoint2) pAnchorWatchPoint2 = NULL;  // pjotrc 2010.02.15
 
-                       if(m_pFoundRoutePoint && (m_pFoundRoutePoint->m_IconName != _T("mob")))
+                       if(m_pFoundRoutePoint && !(m_pFoundRoutePoint->m_bIsInLayer) && (m_pFoundRoutePoint->m_IconName != _T("mob")))
                        {
                               pConfig->DeleteWayPoint ( m_pFoundRoutePoint );
                               pSelect->DeleteSelectablePoint ( m_pFoundRoutePoint, SELTYPE_ROUTEPOINT );
@@ -7460,6 +7467,13 @@ void ChartCanvas::PopupMenuHandler ( wxCommandEvent& event )
 
                         pMarkPropDialog->SetRoutePoint ( m_pFoundRoutePoint );
                         pMarkPropDialog->UpdateProperties();
+                        if (m_pFoundRoutePoint->m_bIsInLayer) {
+                              wxString caption(_T("Mark Properties, Layer: "));
+                              caption.Append(GetLayerName(m_pFoundRoutePoint->m_LayerID));
+                              pMarkPropDialog->SetDialogTitle(caption);
+                        }
+                        else
+                              pMarkPropDialog->SetDialogTitle(_T("Mark Properties"));
 
                         pMarkPropDialog->Show();
                         break;
@@ -7654,6 +7668,7 @@ void ChartCanvas::PopupMenuHandler ( wxCommandEvent& event )
 
                 case ID_RT_MENU_REVERSE:
                 {
+                        if (m_pSelectedRoute->m_bIsInLayer) break;
 
                         pSelect->DeleteAllSelectableRouteSegments ( m_pSelectedRoute );
 
@@ -7679,12 +7694,14 @@ void ChartCanvas::PopupMenuHandler ( wxCommandEvent& event )
                       if ( g_pRouteMan->GetpActiveRoute() == m_pSelectedRoute )
                             g_pRouteMan->DeactivateRoute();
 
+                        if (m_pSelectedRoute->m_bIsInLayer) break;
+
                         pConfig->DeleteConfigRoute ( m_pSelectedRoute );
                         g_pRouteMan->DeleteRoute ( m_pSelectedRoute );
                         m_pSelectedRoute = NULL;
                         m_pFoundRoutePoint = NULL;
                         m_pFoundRoutePointSecond = NULL;
-                        if ( pRoutePropDialog )
+                        if ( pRoutePropDialog && ( pRoutePropDialog->IsShown() ))
                         {
                               pRoutePropDialog->SetRouteAndUpdate ( m_pSelectedRoute );
                               pRoutePropDialog->UpdateProperties();
@@ -7722,6 +7739,8 @@ void ChartCanvas::PopupMenuHandler ( wxCommandEvent& event )
 
                 case ID_RT_MENU_INSERT:
 
+                        if (m_pSelectedRoute->m_bIsInLayer) break;
+
                          m_pSelectedRoute->InsertPointBefore ( m_pFoundRoutePointSecond, zlat, zlon );
 
                         pSelect->DeleteAllSelectableRoutePoints ( m_pSelectedRoute );
@@ -7753,6 +7772,9 @@ void ChartCanvas::PopupMenuHandler ( wxCommandEvent& event )
                         break;
 
                 case ID_RT_MENU_APPEND:
+
+                        if (m_pSelectedRoute->m_bIsInLayer) break;
+
                         m_pMouseRoute = m_pSelectedRoute;
                         parent_frame->nRoute_State = m_pSelectedRoute->GetnPoints() + 1;
 
@@ -7771,6 +7793,8 @@ void ChartCanvas::PopupMenuHandler ( wxCommandEvent& event )
                 case ID_RT_MENU_DELPOINT:
                         if ( m_pSelectedRoute )
                         {
+                              if (m_pSelectedRoute->m_bIsInLayer) break;
+
                               pWayPointMan->DestroyWaypoint(m_pFoundRoutePoint);
                               m_pFoundRoutePoint = NULL;
 
@@ -7794,6 +7818,8 @@ void ChartCanvas::PopupMenuHandler ( wxCommandEvent& event )
               case ID_RT_MENU_REMPOINT:
                     if ( m_pSelectedRoute )
                     {
+                        if (m_pSelectedRoute->m_bIsInLayer) break;
+
                           //  Rebuild the route selectables
                           pSelect->DeleteAllSelectableRoutePoints ( m_pSelectedRoute );
                           pSelect->DeleteAllSelectableRouteSegments ( m_pSelectedRoute );
@@ -7858,7 +7884,13 @@ void ChartCanvas::PopupMenuHandler ( wxCommandEvent& event )
 
                         pRoutePropDialog->SetRouteAndUpdate ( m_pSelectedRoute );
                         pRoutePropDialog->UpdateProperties();
-                        pRoutePropDialog->SetDialogTitle(_("Route Properties"));
+                        if (!m_pSelectedRoute->m_bIsInLayer)
+                              pRoutePropDialog->SetDialogTitle(_("Route Properties"));
+                        else {
+                              wxString caption(_T("Route Properties, Layer: "));
+                              caption.Append(GetLayerName(m_pSelectedRoute->m_LayerID));
+                              pRoutePropDialog->SetDialogTitle(caption);
+                        }
 
                         pRoutePropDialog->Show();
 
@@ -7872,7 +7904,13 @@ void ChartCanvas::PopupMenuHandler ( wxCommandEvent& event )
 
                     pRoutePropDialog->SetRouteAndUpdate ( m_pSelectedTrack );
                     pRoutePropDialog->UpdateProperties();
-                    pRoutePropDialog->SetDialogTitle(_("Track Properties"));
+                        if (!m_pSelectedTrack->m_bIsInLayer)
+                              pRoutePropDialog->SetDialogTitle(_("Track Properties"));
+                        else {
+                              wxString caption(_T("Track Properties, Layer: "));
+                              caption.Append(GetLayerName(m_pSelectedTrack->m_LayerID));
+                              pRoutePropDialog->SetDialogTitle(caption);
+                        }
 
                     pRoutePropDialog->Show();
 

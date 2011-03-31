@@ -78,6 +78,9 @@ extern FontMgr          *pFontMgr;
 
 extern int              g_restore_stackindex;
 extern RouteList        *pRouteList;
+extern LayerList        *pLayerList;
+extern bool             g_bIsNewLayer;
+extern int              g_LayerIdx;
 extern Select           *pSelect;
 extern MyConfig         *pConfig;
 extern ArrayOfCDI       g_ChartDirArray;
@@ -261,6 +264,7 @@ WX_DEFINE_LIST ( RouteList );
 WX_DEFINE_LIST ( SelectableItemList );
 WX_DEFINE_LIST ( RoutePointList );
 WX_DEFINE_LIST ( HyperlinkList );         // toh, 2009.02.22
+WX_DEFINE_LIST ( LayerList );
 
 //-----------------------------------------------------------------------------
 //          Selectable Item
@@ -924,6 +928,7 @@ RoutePoint::RoutePoint ( double lat, double lon, const wxString& icon_ident, con
       m_bShowName = true;
       m_bKeepXRoute = false;
       m_bIsVisible = true;
+      m_bIsListed = true;
       m_ConfigWPNum = -1;
       CurrentRect_in_DC = wxRect ( 0,0,0,0 );
       m_NameLocationOffsetX = -10;
@@ -949,6 +954,14 @@ RoutePoint::RoutePoint ( double lat, double lon, const wxString& icon_ident, con
 
       if ( bAddToList && NULL != pWayPointMan )
             pWayPointMan->m_pWayPointList->Append ( this );
+
+      m_bIsInLayer = g_bIsNewLayer;
+      if (m_bIsInLayer) {
+            m_LayerID = g_LayerIdx;
+            m_bIsListed = false;
+      }
+      else
+            m_LayerID = 0;
 }
 
 
@@ -1037,7 +1050,7 @@ void RoutePoint::Draw ( wxDC& dc, wxPoint *rpn )
       if ( NULL != rpn )
             *rpn = r;
 
-      if ( !m_bIsVisible && !m_bIsInTrack)     // pjotrc 2010.02.13
+      if ( !m_bIsVisible /*&& !m_bIsInTrack*/)     // pjotrc 2010.02.13, 2011.02.24
             return;
 
       //    Optimization, especially apparent on tracks in normal cases
@@ -1194,6 +1207,7 @@ Route::Route ( void )
       m_nm_sequence = 1;
       m_route_length = 0.0;
       m_bVisible = true;
+      m_bListed = true;
       m_bDeleteOnArrival = false;
 
       pRoutePointList = new RoutePointList;
@@ -1203,6 +1217,14 @@ Route::Route ( void )
       m_ArrivalRadius = .05;        // default, Miles
 
       RBBox.Reset();
+
+      m_bIsInLayer = g_bIsNewLayer;
+      if (m_bIsInLayer) {
+            m_LayerID = g_LayerIdx;
+            m_bListed = false;
+      }
+      else
+            m_LayerID = 0;
 }
 
 
@@ -1225,7 +1247,16 @@ void Route::CloneRoute(Route *psourceroute, int start_nPoint, int end_nPoint, wx
 
       int i;
       for (i = start_nPoint; i <= end_nPoint; i++) {
-            AddPoint(psourceroute->GetPoint(i), false);
+            if (!psourceroute->m_bIsInLayer)
+                  AddPoint(psourceroute->GetPoint(i), false);
+            else {
+                  RoutePoint *psourcepoint = psourceroute->GetPoint(i);
+                  RoutePoint *ptargetpoint = new RoutePoint( psourcepoint->m_lat, psourcepoint->m_lon, psourcepoint->m_IconName, psourcepoint->m_MarkName, GPX_EMPTY_STRING, false );
+
+                  AddPoint(ptargetpoint, false);
+
+                  CloneAddedRoutePoint(m_pLastAddedPoint, psourcepoint);
+            }
       }
 
       CalculateBBox();
@@ -1234,6 +1265,8 @@ void Route::CloneRoute(Route *psourceroute, int start_nPoint, int end_nPoint, wx
 
 void Route::CloneTrack(Route *psourceroute, int start_nPoint, int end_nPoint, wxString suffix)
 {
+      if (psourceroute->m_bIsInLayer) return;
+
       m_bIsTrack = psourceroute->m_bIsTrack;
 
       m_RouteNameString = psourceroute->m_RouteNameString+suffix;
@@ -1271,6 +1304,29 @@ void Route::CloneTrack(Route *psourceroute, int start_nPoint, int end_nPoint, wx
 
       CalculateBBox();
  
+}
+
+void Route::CloneAddedRoutePoint(RoutePoint *ptargetpoint, RoutePoint *psourcepoint)
+{
+            ptargetpoint->m_MarkDescription = psourcepoint->m_MarkDescription;
+            ptargetpoint->m_prop_string_format = psourcepoint->m_prop_string_format;
+            ptargetpoint->m_bKeepXRoute = psourcepoint->m_bKeepXRoute;
+            ptargetpoint->m_bIsVisible = psourcepoint->m_bIsVisible;
+            ptargetpoint->m_bPtIsSelected = false;
+            ptargetpoint->m_pbmIcon = psourcepoint->m_pbmIcon;
+            ptargetpoint->m_bShowName = psourcepoint->m_bShowName;
+            ptargetpoint->m_bBlink = psourcepoint->m_bBlink;
+            ptargetpoint->m_bBlink = psourcepoint->m_bDynamicName;
+            ptargetpoint->CurrentRect_in_DC = psourcepoint->CurrentRect_in_DC;
+            ptargetpoint->m_NameLocationOffsetX = psourcepoint->m_NameLocationOffsetX;
+            ptargetpoint->m_NameLocationOffsetX = psourcepoint->m_NameLocationOffsetY;
+            ptargetpoint->m_CreateTime = psourcepoint->m_CreateTime;
+            ptargetpoint->m_HyperlinkList = new HyperlinkList;
+
+            if (!psourcepoint->m_HyperlinkList->IsEmpty()) {
+                  HyperlinkList::iterator iter = psourcepoint->m_HyperlinkList->begin();
+                  psourcepoint->m_HyperlinkList->splice(iter, *(ptargetpoint->m_HyperlinkList));
+            }
 }
 
 void Route::CloneAddedTrackPoint(RoutePoint *ptargetpoint, RoutePoint *psourcepoint)
@@ -1705,6 +1761,8 @@ int Route::GetIndexOf ( RoutePoint *prp )
 void Route::DeletePoint ( RoutePoint *rp, bool bRenamePoints )
 {
       //    n.b. must delete Selectables  and update config before deleting the point
+      if (rp->m_bIsInLayer) return;
+
       pSelect->DeleteAllSelectableRoutePoints ( this );
       pSelect->DeleteAllSelectableRouteSegments ( this );
       pConfig->DeleteWayPoint ( rp );
@@ -1961,6 +2019,11 @@ void Route::SetVisible(bool visible)
       m_bVisible = visible;
 }
 
+void Route::SetListed(bool visible)
+{
+      m_bListed = visible;
+}
+
 void Route::AssembleRoute ( void )
 {
       //    iterate over the RoutePointGUIDs
@@ -2030,6 +2093,8 @@ bool Route::IsEqualTo ( Route *ptargetroute )
 
       if ( NULL == pthisnode )
             return false;
+
+      if (this->m_bIsInLayer || ptargetroute->m_bIsInLayer) return false;
 
       if (this->GetnPoints() != ptargetroute->GetnPoints())
            return false;
@@ -2290,7 +2355,47 @@ Route *Track::RouteFromTrack(wxProgressDialog *pprog)
 }
 
 
+//-----------------------------------------------------------------------------
+//          Layer Implementation
+//-----------------------------------------------------------------------------
 
+Layer::Layer ( void )
+{
+      m_bIsVisibleOnChart = true;
+      m_bIsVisibleOnListing = false;
+      m_bHasVisibleNames = true;
+      m_NoOfItems = 0;
+
+      m_LayerName = _T("");
+      m_LayerFileName = _T("");
+      m_LayerDescription = _T("");
+      m_CreateTime = wxDateTime::Now();
+}
+
+
+Layer::~Layer ( void )
+{
+//  Remove this layer from the global layer list
+      if ( NULL != pLayerList )
+            pLayerList->DeleteObject ( this );
+
+}
+
+// Layer helper function
+
+wxString GetLayerName(int id)
+{
+      wxString name(_T("unknown layer"));
+      if (id<=0) return(name);
+      LayerList::iterator it;
+      int index = 0;
+      for (it = (*pLayerList).begin(); it != (*pLayerList).end(); ++it, ++index)
+      {
+            Layer *lay = (Layer *)(*it);
+            if (lay->m_LayerID == id) return (lay->m_LayerName);
+      }
+      return(name);
+}
 
 
 //-----------------------------------------------------------------------------
@@ -2311,6 +2416,7 @@ MyConfig::MyConfig ( const wxString &appName, const wxString &vendorName, const 
       m_pNavObjectChangesSet = new NavObjectCollection();
 
       m_bIsImporting = false;
+      g_bIsNewLayer = false;
 }
 
 
@@ -2958,6 +3064,13 @@ int MyConfig::LoadMyConfig ( int iteration )
             m_NextRouteNum = routenum + 1;
       }
 
+      //    Layers
+      if ( 0 == iteration )
+      {
+            int laynum = 0;
+            pLayerList = new LayerList;
+      }
+
       //    Marks
       if ( 0 == iteration )
       {
@@ -3314,6 +3427,8 @@ bool MyConfig::AddNewRoute ( Route *pr, int crm )
       wxString str_buf;
       int acrm;
 
+      if (pr->m_bIsInLayer) return true;
+
       if ( crm != -1 )
             acrm = crm;
       else
@@ -3338,6 +3453,8 @@ bool MyConfig::AddNewRoute ( Route *pr, int crm )
 
 bool MyConfig::UpdateRoute ( Route *pr )
 {
+      if (pr->m_bIsInLayer) return true;
+
       if ( pr->m_bIsTrack )
       {
             if (!m_bIsImporting)
@@ -3375,6 +3492,8 @@ bool MyConfig::DeleteConfigRoute ( Route *pr )
 {
       wxString str_buf;
 
+      if (pr->m_bIsInLayer) return true;
+
 //    Build the Group Name
       wxString t ( _T ( "/Routes/RouteDefn" ) );
       str_buf.Printf ( _T ( "%d" ), pr->m_ConfigRouteNum );
@@ -3411,6 +3530,8 @@ bool MyConfig::AddNewWayPoint ( RoutePoint *pWP, int crm )
       wxString str_buf;
       int acrm;
 
+      if (pWP->m_bIsInLayer) return true;
+
       if ( crm != -1 )
             acrm = crm;
       else
@@ -3435,6 +3556,8 @@ bool MyConfig::UpdateWayPoint ( RoutePoint *pWP )
 {
       wxString str_buf;
 
+      if (pWP->m_bIsInLayer) return true;
+
 //    Build the Group Name
       wxString t ( _T ( "/Marks/MarkDefn" ) );
       str_buf.Printf ( _T ( "%d" ), pWP->m_ConfigWPNum );
@@ -3456,6 +3579,8 @@ bool MyConfig::UpdateWayPoint ( RoutePoint *pWP )
 bool MyConfig::DeleteWayPoint ( RoutePoint *pWP )
 {
       wxString str_buf;
+
+      if (pWP->m_bIsInLayer) return true;
 
 //    Build the Group Name
       wxString t ( _T ( "/Marks/MarkDefn" ) );
@@ -3824,6 +3949,8 @@ void MyConfig::StoreNavObjChanges(void)
 
 bool MyConfig::ExportGPXRoute ( wxWindow* parent, Route *pRoute )
 {
+      //if (pRoute->m_bIsInLayer) return true;
+
       //FIXME: get rid of the Dialogs and unite with the other
       wxFileDialog saveDialog( parent, _( "Export GPX file" ), m_gpx_path, wxT ( "" ),
                   wxT ( "GPX files (*.gpx)|*.gpx" ), wxFD_SAVE );
@@ -3869,6 +3996,8 @@ bool MyConfig::ExportGPXRoute ( wxWindow* parent, Route *pRoute )
 
 bool MyConfig::ExportGPXWaypoint ( wxWindow* parent, RoutePoint *pRoutePoint )
 {
+      //if (pRoutePoint->m_bIsInLayer) return true;
+
       //FIXME: get rid of the Dialogs and unite with the other
       wxFileDialog saveDialog( parent, _( "Export GPX file" ), m_gpx_path, wxT ( "" ),
                   wxT ( "GPX files (*.gpx)|*.gpx" ), wxFD_SAVE );
@@ -3940,7 +4069,9 @@ void MyConfig::ExportGPX ( wxWindow* parent )
             while ( node )
             {
                   pr = node->GetData();
-                  if ( pr->m_bKeepXRoute || !WptIsInRouteList ( pr ) )
+
+//                  if ( pr->m_bKeepXRoute || !WptIsInRouteList ( pr ) )
+                  if (( pr->m_bKeepXRoute || !WptIsInRouteList ( pr )) && !(pr->m_bIsInLayer) )
                   {
                         gpxroot->AddWaypoint(CreateGPXWpt(pr, GPX_WPT_WAYPOINT));
                   }
@@ -3951,13 +4082,15 @@ void MyConfig::ExportGPX ( wxWindow* parent )
             while ( node1 )
             {
                   Route *pRoute = node1->GetData();
-                  if ( !pRoute->m_bIsTrack )
-                  {
-                        gpxroot->AddRoute(CreateGPXRte ( pRoute ));
-                  }
-                  else
-                  {
-                        gpxroot->AddTrack(CreateGPXTrk ( pRoute ));
+                  if ( !(pRoute->m_bIsInLayer)) {
+                        if ( !pRoute->m_bIsTrack )
+                        {
+                              gpxroot->AddRoute(CreateGPXRte ( pRoute ));
+                        }
+                        else
+                        {
+                              gpxroot->AddTrack(CreateGPXTrk ( pRoute ));
+                        }
                   }
                   node1 = node1->GetNext();
             }
@@ -4085,18 +4218,42 @@ GpxTrkElement *CreateGPXTrk ( Route *pRoute )
       return trk;
 }
 
-void MyConfig::ImportGPX ( wxWindow* parent )
+void MyConfig::ImportGPX ( wxWindow* parent, bool islayer, wxString dirpath, bool isdirectory )
 {
+      int response = wxID_CANCEL;
       m_bIsImporting = true;
-      //FIXME: unite the loading itself with NavObjectCollection::LoadAllGPXObjects()
-      wxFileDialog openDialog( parent, _( "Import GPX file" ), m_gpx_path, wxT ( "" ),
-                               wxT ( "GPX files (*.gpx)|*.gpx|All files (*.*)|*.*" ), wxFD_OPEN | wxFD_MULTIPLE );
-      int response = openDialog.ShowModal();
+      g_bIsNewLayer = islayer;
+      wxArrayString file_array;
+      Layer *l;
+
+                    //wxString impmsg;
+                    //impmsg.Printf(wxT("ImportGPX: %d, %s, %d"), islayer, dirpath.c_str(), isdirectory);
+                    //wxLogMessage(impmsg);
+
+
+      if (!islayer || dirpath.IsSameAs(_T(""))) {
+            //FIXME: unite the loading itself with NavObjectCollection::LoadAllGPXObjects()
+            wxFileDialog openDialog( parent, _( "Import GPX file" ), m_gpx_path, wxT ( "" ),
+                                     wxT ( "GPX files (*.gpx)|*.gpx|All files (*.*)|*.*" ), wxFD_OPEN | wxFD_MULTIPLE );
+            response = openDialog.ShowModal();
+            if ( response == wxID_OK )
+            {
+                  openDialog.GetPaths(file_array);
+            }
+
+      } else {
+            if (isdirectory){
+                  if (wxDir::GetAllFiles( dirpath, &file_array, wxT("*.gpx")))
+                        response = wxID_OK;
+            }
+            else {
+                  file_array.Add(dirpath);
+                  response = wxID_OK;
+            }
+      }
 
       if ( response == wxID_OK )
       {
-            wxArrayString file_array;
-            openDialog.GetPaths(file_array);
 
             //    Record the currently selected directory for later use
             if(file_array.GetCount())
@@ -4104,13 +4261,41 @@ void MyConfig::ImportGPX ( wxWindow* parent )
                   wxFileName fn ( file_array[0] );
                   m_gpx_path = fn.GetPath();
             }
+            if (islayer) {
+                  l = new Layer();
+                  l->m_LayerID = ++g_LayerIdx;
+                  l->m_LayerFileName = file_array[0];
+                  if (file_array.GetCount()<=1)
+                        wxFileName::SplitPath(file_array[0],NULL,NULL,&(l->m_LayerName),NULL,NULL);
+                  else {
+                        if (dirpath.IsSameAs(_T("")))
+                        wxFileName::SplitPath(m_gpx_path,NULL,NULL,&(l->m_LayerName),NULL,NULL);
+                        else
+                        wxFileName::SplitPath(dirpath,NULL,NULL,&(l->m_LayerName),NULL,NULL);
+                  }
+
+                    wxString laymsg;
+                    laymsg.Printf(wxT("New layer %d: %s"), l->m_LayerID, l->m_LayerName.c_str());
+                    wxLogMessage(laymsg);
+
+                  pLayerList->Insert(l);
+            }
 
             for(unsigned int i=0 ; i < file_array.GetCount() ; i++)
             {
                   wxString path = file_array[i];
 
+                    //wxString filmsg;
+                    //filmsg.Printf(wxT("Trying layer file %d: %s"), i, path.c_str());
+                    //wxLogMessage(filmsg);
+
                   if ( ::wxFileExists ( path ) )
                   {
+
+                    //wxString gpxmsg;
+                    //gpxmsg.Printf(wxT("Reading layer file %d: %s"), i, path.c_str());
+                    //wxLogMessage(gpxmsg);
+
                         GpxDocument *pXMLNavObj = new GpxDocument();
 				if ( pXMLNavObj->LoadFile ( path ) )
                         {
@@ -4138,21 +4323,32 @@ void MyConfig::ImportGPX ( wxWindow* parent )
                                                             pWayPointMan->m_pWayPointList->Append ( pWp );
 
                                                       pWp->m_bIsolatedMark = true;      // This is an isolated mark
+                                                      pWp->m_bIsInLayer = g_bIsNewLayer;
                                                       AddNewWayPoint ( pWp,m_NextWPNum );   // use auto next num
                                                       pSelect->AddSelectableRoutePoint ( pWp->m_lat, pWp->m_lon, pWp );
                                                       pWp->m_ConfigWPNum = m_NextWPNum;
+
+                                                      if (g_bIsNewLayer)
+                                                            pWp->m_LayerID = g_LayerIdx;
+                                                      else
+                                                            pWp->m_LayerID = 0;
                                                       m_NextWPNum++;
                                                 }
-
+                                                if (islayer)
+                                                      l->m_NoOfItems++;
                                           }
                                           else if ( ChildName == _T ( "rte" ) )
                                           {
                                                 ::GPXLoadRoute ( (GpxRteElement *)child, m_NextRouteNum, true );        // Full visibility
                                                 m_NextRouteNum++;
+                                                if (islayer)
+                                                      l->m_NoOfItems++;
                                           }
                                           else if ( ChildName == _T ( "trk" ) )
                                           {
                                                 ::GPXLoadTrack ( (GpxTrkElement *)child, true );                        // Full visibility
+                                                if (islayer)
+                                                      l->m_NoOfItems++;
                                           }
                                     }
                               }
@@ -4163,6 +4359,7 @@ void MyConfig::ImportGPX ( wxWindow* parent )
             }
       }
       m_bIsImporting = false;
+      g_bIsNewLayer = false;
 }
 
 //-------------------------------------------------------------------------
@@ -4173,12 +4370,14 @@ void MyConfig::ImportGPX ( wxWindow* parent )
 RoutePoint *WaypointExists( const wxString& name, double lat, double lon)
 {
       RoutePoint *pret = NULL;
+      if (g_bIsNewLayer) return NULL;
       wxRoutePointListNode *node = pWayPointMan->m_pWayPointList->GetFirst();
-
       bool Exists = false;
       while ( node )
       {
             RoutePoint *pr = node->GetData();
+
+            if (pr->m_bIsInLayer) return NULL;
 
             if ( name == pr->m_MarkName )
             {
@@ -4197,11 +4396,13 @@ RoutePoint *WaypointExists( const wxString& name, double lat, double lon)
 
 RoutePoint *WaypointExists( const wxString& guid)
 {
+      if (g_bIsNewLayer) return NULL;
       wxRoutePointListNode *node = pWayPointMan->m_pWayPointList->GetFirst();
-
       while ( node )
       {
             RoutePoint *pr = node->GetData();
+
+            if (pr->m_bIsInLayer) return NULL;
 
             if ( guid == pr->m_GUID )
             {
@@ -4248,7 +4449,9 @@ bool WptIsInRouteList ( RoutePoint *pr )
 
 Route *RouteExists( const wxString& guid )
 {
+      if (g_bIsNewLayer) return NULL;
       wxRouteListNode *route_node = pRouteList->GetFirst();
+
       while ( route_node )
        {
             Route *proute = route_node->GetData();
@@ -4263,6 +4466,7 @@ Route *RouteExists( const wxString& guid )
 
 Route *RouteExists( Route * pTentRoute )
  {
+      if (g_bIsNewLayer) return NULL;
       wxRouteListNode *route_node = pRouteList->GetFirst();
       while ( route_node )
       {
@@ -4936,6 +5140,7 @@ RoutePoint *LoadGPXWaypoint (GpxWptElement *wptnode, wxString def_symbol_name, b
       LatString.ToDouble ( &rlat );
       LonString.ToDouble ( &rlon );
 
+      if (g_bIsNewLayer) GuidString = _T("");
       RoutePoint *pWP = new RoutePoint ( rlat, rlon, SymString, NameString, GuidString, false );      // do not add to global WP list yet...
       pWP->m_MarkDescription = DescString;
 
@@ -5050,7 +5255,7 @@ void GPXLoadTrack ( GpxTrkElement* trknode, bool b_fullviz )
                               else if ( ext_name == _T ( "opencpn:guid" ) )
                               {
 						TiXmlNode *g_child = ext_child->FirstChild();
-                                    if ( g_child != NULL )
+                                    if ( g_child != NULL && (!g_bIsNewLayer))
                                           pTentTrack->m_GUID = wxString::FromUTF8 ( g_child->ToText()->Value() );
                               }
                         }
@@ -5230,7 +5435,7 @@ Route *LoadGPXTrack (GpxTrkElement *trknode, bool b_fullviz)
                         else if ( ext_name == _T ( "opencpn:guid" ) )
                         {
 					TiXmlNode *g_child = ext_child->FirstChild();
-                              if ( g_child != NULL )
+                              if ( g_child != NULL && (!g_bIsNewLayer))
                               {
                                     pTentRoute->m_GUID = wxString::FromUTF8 ( g_child->ToText()->Value() );
                               }
@@ -5268,6 +5473,11 @@ Route *LoadGPXRoute(GpxRteElement *rtenode, int routenum, bool b_fullviz)
 
                         pTentRoute->AddPoint ( pWp, false );                      // don't auto-rename numerically
                         pWp->m_ConfigWPNum = 1000 + ( routenum * 100 ) + ip;  // dummy mark number
+                        pWp->m_bIsInLayer = g_bIsNewLayer;
+                        if (g_bIsNewLayer)
+                              pWp->m_LayerID = g_LayerIdx;
+                        else
+                              pWp->m_LayerID = 0;
                   }
                   else
                   {
@@ -5316,7 +5526,7 @@ Route *LoadGPXRoute(GpxRteElement *rtenode, int routenum, bool b_fullviz)
                         else if ( ext_name == _T ( "opencpn:guid" ) )
                         {
 					TiXmlNode *g_child = ext_child->FirstChild();
-                              if ( g_child != NULL )
+                              if ( g_child != NULL && (!g_bIsNewLayer))
                               {
                                     pTentRoute->m_GUID = wxString::FromUTF8 ( g_child->ToText()->Value() );
                               }
@@ -5478,7 +5688,7 @@ bool NavObjectCollection::CreateNavObjGPXPoints ( void )
       {
             pr = node->GetData();
 
-            if ( pr->m_bIsolatedMark) //( !WptIsInRouteList ( pr ) )
+            if (( pr->m_bIsolatedMark) && !(pr->m_bIsInLayer))//( !WptIsInRouteList ( pr ) )
             {
                   m_pXMLrootnode->AddWaypoint ( CreateGPXWpt(pr, GPX_WPT_WAYPOINT) );
             }
@@ -5496,7 +5706,7 @@ bool NavObjectCollection::CreateNavObjGPXRoutes ( void )
       {
             Route *pRoute = node1->GetData();
 
-            if ( !pRoute->m_bIsTrack )                            // Not tracks
+            if ( !pRoute->m_bIsTrack && !(pRoute->m_bIsInLayer) )                            // Not tracks
             {
                   m_pXMLrootnode->AddRoute(CreateGPXRte(pRoute));
             }
@@ -5517,7 +5727,7 @@ bool NavObjectCollection::CreateNavObjGPXTracks ( void )
 
             if ( pRoutePointList->GetCount() )
             {
-                  if ( pRoute->m_bIsTrack )                            // Tracks only
+                  if ( pRoute->m_bIsTrack && !(pRoute->m_bIsInLayer))                            // Tracks only
                   {
                         //Redundant - RoutePointList *pRoutePointList = pRoute->pRoutePointList;
                         m_pXMLrootnode->AddTrack(CreateGPXTrk(pRoute));
