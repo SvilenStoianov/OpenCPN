@@ -320,7 +320,7 @@ int wxCALLBACK SortLayersOnName(long item1, long item2, long list)
 // sort callback. Sort by layer size.
 int sort_layer_len_dir;
 #if wxCHECK_VERSION(2, 9, 0)
-int wxCALLBACK SortTracksOnDistance(long item1, long item2, wxIntPtr list)
+int wxCALLBACK SortLayersOnSize(long item1, long item2, wxIntPtr list)
 #else
 int wxCALLBACK SortLayersOnSize(long item1, long item2, long list)
 #endif
@@ -2273,7 +2273,7 @@ void RouteManagerDialog::UpdateLayListCtrl()
             m_pLayListCtrl->SetItem(idx, colLAYNAME, name);
 
             wxString len;
-            len.Printf(wxT("%d"), lay->m_NoOfItems);
+            len.Printf(wxT("%d"), (int)lay->m_NoOfItems);
             m_pLayListCtrl->SetItem(idx, colLAYITEMS,  len);
       }
 
