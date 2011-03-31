@@ -240,7 +240,8 @@ class MyFrame: public wxFrame
     void ToggleChartOutlines(void);
     void ToggleENCText(void);
     void TrackOn(void);
-    void TrackOff(void);
+    void TrackOff(bool do_add_point = false);
+    void TrackMidnightRestart(void);
     void ToggleColorScheme();
     int GetnChartStack(void);
     void SetToolbarItemState ( int tool_id, bool state );
