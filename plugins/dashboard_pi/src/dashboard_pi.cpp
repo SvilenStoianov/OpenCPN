@@ -884,8 +884,8 @@ void dashboard_pi::OnToolbarToolCallback(int id)
                   if (pane.IsOk())
                         pane.Show(cnt==0);
 		  if (pane.IsFloating() && pane.IsShown()) {
-			std::cout << "IMPDEBUG: Floating Pane, making transparent" << std::endl;
-			pane.frame->SetTransparent(128);
+			//std::cout << "IMPDEBUG: Floating Pane, making transparent" << std::endl;
+			if(pane.frame) pane.frame->SetTransparent(128);
 		}
             }
       }
@@ -1014,7 +1014,7 @@ bool dashboard_pi::SaveConfig(void)
                   pConf->Write( _T("Orientation"), cont->m_sOrientation );
                   pConf->Write( _T("InstrumentWidth"), cont->m_iInstrumentWidth );
                   pConf->Write( _T("InstrumentCount"), (int)cont->m_aInstrumentList.GetCount() );
-                  for (size_t j = 0; j < cont->m_aInstrumentList.GetCount(); j++)
+                  for (int j = 0; j < cont->m_aInstrumentList.GetCount(); j++)
                         pConf->Write( wxString::Format(_T("Instrument%d"), j+1), cont->m_aInstrumentList.Item(j));
             }
 
