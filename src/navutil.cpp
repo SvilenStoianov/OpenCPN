@@ -342,6 +342,21 @@ bool Select::DeleteAllSelectableRouteSegments ( Route *pr )
       SelectItem *pFindSel;
 
 //    Iterate on the select list
+#if wxCHECK_VERSION(2, 9, 2)
+      for(SelectableItemList::iterator sili = pSelectList->begin(); sili != pSelectList->end(); sili++)
+      {
+            pFindSel = *sili;
+            if ( pFindSel->m_seltype == SELTYPE_ROUTESEGMENT )
+            {
+                  if ( ( Route * ) pFindSel->m_pData3  == pr )
+                  {
+                        delete pFindSel;
+                        sili = pSelectList->erase(sili); // delete node
+			if(sili == pSelectList->end()) break;
+                  }
+            }
+     }
+#else
       wxSelectableItemListNode *node = pSelectList->GetFirst();
 
       while ( node )
@@ -368,7 +383,7 @@ bool Select::DeleteAllSelectableRouteSegments ( Route *pr )
       got_next_outer_node:
             continue;
       }
-
+#endif
 
       return true;
 }
@@ -379,6 +394,30 @@ bool Select::DeleteAllSelectableRoutePoints ( Route *pr )
       SelectItem *pFindSel;
 
 //    Iterate on the select list
+#if wxCHECK_VERSION(2, 9, 2)
+      for(SelectableItemList::iterator sili = pSelectList->begin(); sili != pSelectList->end(); sili++)
+      {
+            pFindSel = *sili;
+            if ( pFindSel->m_seltype == SELTYPE_ROUTEPOINT )
+            {
+                  RoutePoint *ps = ( RoutePoint * ) pFindSel->m_pData1;
+
+                  //    inner loop iterates on the route's point list
+                  for(RoutePointList::iterator rpli = pr->pRoutePointList->begin(); rpli != pr->pRoutePointList->end(); rpli++)
+                  {
+                        RoutePoint *prp = *rpli;
+
+                        if ( prp == ps )
+                        {
+                              delete pFindSel;
+                              sili = pSelectList->erase(sili); // delete node
+                              break;
+                        }
+                  }
+                  if(sili == pSelectList->end()) break;
+            }
+      }
+#else
       wxSelectableItemListNode *node = pSelectList->GetFirst();
 
       while ( node )
@@ -410,12 +449,22 @@ bool Select::DeleteAllSelectableRoutePoints ( Route *pr )
       got_next_outer_node:
             continue;
       }
+#endif
       return true;
 }
 
 
 bool Select::AddAllSelectableRoutePoints ( Route *pr )
 {
+#if wxCHECK_VERSION(2, 9, 2)
+      if(pr->pRoutePointList->empty()) return false;
+      for(RoutePointList::iterator rpli = pr->pRoutePointList->begin(); rpli != pr->pRoutePointList->end(); rpli++)
+      {
+                  RoutePoint *prp = *rpli;
+                  AddSelectableRoutePoint ( prp->m_lat, prp->m_lon, prp );
+      }
+      return true;
+#else
       if ( pr->pRoutePointList->GetCount() )
       {
             wxRoutePointListNode *node = ( pr->pRoutePointList )->GetFirst();
@@ -430,6 +479,7 @@ bool Select::AddAllSelectableRoutePoints ( Route *pr )
       }
       else
             return false;
+#endif
 }
 
 bool Select::AddAllSelectableRouteSegments ( Route *pr )
@@ -437,19 +487,33 @@ bool Select::AddAllSelectableRouteSegments ( Route *pr )
       wxPoint rpt, rptn;
       float slat1, slon1, slat2, slon2;
 
+#if wxCHECK_VERSION(2, 9, 2)
+      if(!pr->pRoutePointList->empty()) 
+      {
+            RoutePointList::iterator rpli = pr->pRoutePointList->begin(); 
+            RoutePoint *prp0 = *rpli;
+#else
       if ( pr->pRoutePointList->GetCount() )
       {
             wxRoutePointListNode *node = ( pr->pRoutePointList )->GetFirst();
 
             RoutePoint *prp0 = node->GetData();
+#endif
             slat1 = prp0->m_lat;
             slon1 = prp0->m_lon;
 
+#if wxCHECK_VERSION(2, 9, 2)
+            rpli++;
+            while(rpli != pr->pRoutePointList->end())
+            {
+                  RoutePoint *prp = *rpli;
+#else
             node = node->GetNext();
 
             while ( node )
             {
                   RoutePoint *prp = node->GetData();
+#endif
                   slat2 = prp->m_lat;
                   slon2 = prp->m_lon;
 
@@ -459,7 +523,11 @@ bool Select::AddAllSelectableRouteSegments ( Route *pr )
                   slon1 = slon2;
                   prp0 = prp;
 
+#if wxCHECK_VERSION(2, 9, 2)
+                  rpli++;
+#else
                   node = node->GetNext();
+#endif
             }
             return true;
       }
@@ -472,19 +540,33 @@ bool Select::AddAllSelectableTrackSegments ( Route *pr )
       wxPoint rpt, rptn;
       float slat1, slon1, slat2, slon2;
 
+#if wxCHECK_VERSION(2, 9, 2)
+      if ( !pr->pRoutePointList->empty() )
+      {
+            RoutePointList::iterator rpli = pr->pRoutePointList->begin();
+
+            RoutePoint *prp0 = *rpli;
+#else
       if ( pr->pRoutePointList->GetCount() )
       {
             wxRoutePointListNode *node = ( pr->pRoutePointList )->GetFirst();
 
             RoutePoint *prp0 = node->GetData();
+#endif
             slat1 = prp0->m_lat;
             slon1 = prp0->m_lon;
 
+#if wxCHECK_VERSION(2, 9, 2)
+	    rpli++;
+            while ( rpli != pr->pRoutePointList->end() )
+            {
+                  RoutePoint *prp = *rpli;
+#else
             node = node->GetNext();
-
             while ( node )
             {
                   RoutePoint *prp = node->GetData();
+#endif
                   slat2 = prp->m_lat;
                   slon2 = prp->m_lon;
 
@@ -494,7 +576,11 @@ bool Select::AddAllSelectableTrackSegments ( Route *pr )
                   slon1 = slon2;
                   prp0 = prp;
 
+#if wxCHECK_VERSION(2, 9, 2)
+                  rpli++;
+#else
                   node = node->GetNext();
+#endif
             }
             return true;
       }
@@ -508,11 +594,17 @@ bool Select::UpdateSelectableRouteSegments ( RoutePoint *prp )
       bool ret = false;
 
 //    Iterate on the select list
+#if wxCHECK_VERSION(2, 9, 2)
+      for(SelectableItemList::iterator sili = pSelectList->begin(); sili != pSelectList->end(); sili++)
+      {
+            pFindSel = *sili;
+#else
       wxSelectableItemListNode *node = pSelectList->GetFirst();
 
       while ( node )
       {
             pFindSel = node->GetData();
+#endif
             if ( pFindSel->m_seltype == SELTYPE_ROUTESEGMENT )
             {
                   if ( pFindSel->m_pData1 == prp )
@@ -529,7 +621,9 @@ bool Select::UpdateSelectableRouteSegments ( RoutePoint *prp )
                         ret = true;
                   }
             }
+#if !wxCHECK_VERSION(2, 9, 2)
             node = node->GetNext();
+#endif
       }
 
 
@@ -576,6 +670,21 @@ bool Select::DeleteSelectablePoint ( void *pdata, int SeltypeToDelete )
       if ( NULL != pdata )
       {
 //    Iterate on the list
+#if wxCHECK_VERSION(2, 9, 2)
+            for(SelectableItemList::iterator sili = pSelectList->begin(); sili != pSelectList->end(); sili++)
+            {
+                  pFindSel = *sili;
+                  if ( pFindSel->m_seltype == SeltypeToDelete )
+                  {
+                        if ( pdata == pFindSel->m_pData1 )
+                        {
+                              delete pFindSel;
+                              pSelectList->erase(sili);
+                              return true;
+                        }
+                  }
+            }
+#else
             wxSelectableItemListNode *node = pSelectList->GetFirst();
 
             while ( node )
@@ -592,6 +701,7 @@ bool Select::DeleteSelectablePoint ( void *pdata, int SeltypeToDelete )
                   }
                   node = node->GetNext();
             }
+#endif
       }
       return false;
 }
@@ -602,6 +712,18 @@ bool Select::DeleteAllSelectableTypePoints ( int SeltypeToDelete )
       SelectItem *pFindSel;
 
 //    Iterate on the list
+#if wxCHECK_VERSION(2, 9, 2)
+      for(SelectableItemList::iterator sili = pSelectList->begin(); sili != pSelectList->end(); sili++)
+      {
+            pFindSel = *sili;
+            if ( pFindSel->m_seltype == SeltypeToDelete )
+            {
+                  delete pFindSel;
+                  sili = pSelectList->erase(sili);
+                  if(sili == pSelectList->end()) break;
+            }
+      }
+#else
       wxSelectableItemListNode *node = pSelectList->GetFirst();
 
       while ( node )
@@ -619,6 +741,7 @@ bool Select::DeleteAllSelectableTypePoints ( int SeltypeToDelete )
       got_next_node:
             continue;
       }
+#endif
       return true;
 }
 
@@ -627,11 +750,17 @@ bool Select::ModifySelectablePoint ( float lat, float lon, void *data, int Selty
       SelectItem *pFindSel;
 
 //    Iterate on the list
+#if wxCHECK_VERSION(2, 9, 2)
+      for(SelectableItemList::iterator sili = pSelectList->begin(); sili != pSelectList->end(); sili++)
+      {
+            pFindSel = *sili;
+#else
       wxSelectableItemListNode *node = pSelectList->GetFirst();
 
       while ( node )
       {
             pFindSel = node->GetData();
+#endif
             if ( pFindSel->m_seltype == SeltypeToModify )
             {
                   if ( data == pFindSel->m_pData1 )
@@ -641,8 +770,9 @@ bool Select::ModifySelectablePoint ( float lat, float lon, void *data, int Selty
                         return true;
                   }
             }
-
+#if !wxCHECK_VERSION(2, 9, 2)
             node = node->GetNext();
+#endif
       }
       return false;
 }
@@ -675,6 +805,22 @@ bool Select::DeleteAllSelectableTrackSegments ( Route *pr )
       SelectItem *pFindSel;
 
 //    Iterate on the select list
+#if wxCHECK_VERSION(2, 9, 2)
+      for(SelectableItemList::iterator sili = pSelectList->begin(); sili != pSelectList->end(); sili++)
+      {
+            pFindSel = *sili;
+            if ( pFindSel->m_seltype == SELTYPE_TRACKSEGMENT )
+            {
+                  if ( ( Route * ) pFindSel->m_pData3  == pr )
+                  {
+                        delete pFindSel;
+                        sili = pSelectList->erase(sili);   //delete node;
+                        if(sili == pSelectList->end()) break;
+                  }
+            }
+      }
+
+#else
       wxSelectableItemListNode *node = pSelectList->GetFirst();
 
       while ( node )
@@ -701,7 +847,7 @@ bool Select::DeleteAllSelectableTrackSegments ( Route *pr )
       got_next_outer_node:
                   continue;
       }
-
+#endif
 
       return true;
 }

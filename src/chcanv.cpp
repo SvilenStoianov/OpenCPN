@@ -521,7 +521,12 @@ class Quilt
             wxBitmap          *m_pBM;
 
             bool              m_bcomposed;
+
+#if wxCHECK_VERSION(2, 9, 2)
+            PatchList::iterator  cnode;
+#else
             wxPatchListNode   *cnode;
+#endif
             bool              m_bbusy;
             int               m_quilt_proj;
 
@@ -560,7 +565,11 @@ Quilt::Quilt()
       m_refchart_dbIndex = -1;
       m_reference_type = CHART_TYPE_UNKNOWN;
 
+#if wxCHECK_VERSION(2, 9, 2)
+      cnode = m_PatchList.end();
+#else
       cnode = NULL;
+#endif
 
       m_pBM = NULL;
       m_bcomposed = false;
@@ -641,8 +650,13 @@ ArrayOfInts Quilt::GetCandidatedbIndexArray(bool from_ref_chart, bool exclude_us
 
 QuiltPatch *Quilt::GetCurrentPatch()
 {
+#if wxCHECK_VERSION(2, 9, 2)
+      if(cnode != m_PatchList.end())
+            return(*cnode);
+#else
       if(cnode)
             return (cnode->GetData());
+#endif
       else
             return NULL;
 }
@@ -674,9 +688,16 @@ ChartBase *Quilt::GetFirstChart()
 
       m_bbusy = true;
       ChartBase *pret = NULL;
+#if wxCHECK_VERSION(2, 9, 2)
+      if(!m_PatchList.empty()) {
+            cnode = m_PatchList.begin();
+            pret = ChartData->OpenChartFromDB((*cnode)->dbIndex, FULL_INIT);
+      }
+#else
       cnode = m_PatchList.GetFirst();
       if(cnode)
             pret = ChartData->OpenChartFromDB(cnode->GetData()->dbIndex, FULL_INIT);
+#endif
 
       m_bbusy = false;
       return pret;
@@ -695,9 +716,15 @@ ChartBase *Quilt::GetNextChart()
 
       m_bbusy = true;
       ChartBase *pret = NULL;
+#if wxCHECK_VERSION(2, 9, 2)
+      cnode++;
+      if(cnode != m_PatchList.end())
+            pret = ChartData->OpenChartFromDB((*cnode)->dbIndex, FULL_INIT);
+#else
       cnode = cnode->GetNext();
       if(cnode)
             pret = ChartData->OpenChartFromDB(cnode->GetData()->dbIndex, FULL_INIT);
+#endif
 
       m_bbusy = false;
       return pret;
@@ -713,9 +740,16 @@ ChartBase *Quilt::GetLargestScaleChart()
 
       m_bbusy = true;
       ChartBase *pret = NULL;
+#if wxCHECK_VERSION(2, 9, 2)
+      cnode = m_PatchList.end();
+      cnode--;
+      if(cnode != m_PatchList.end())
+            pret = ChartData->OpenChartFromDB((*cnode)->dbIndex, FULL_INIT);
+#else
       cnode = m_PatchList.GetLast();
       if(cnode)
             pret = ChartData->OpenChartFromDB(cnode->GetData()->dbIndex, FULL_INIT);
+#endif
 
       m_bbusy = false;
       return pret;
@@ -789,6 +823,16 @@ int Quilt::GetChartdbIndexAtPix(wxPoint p)
 
       int ret = -1;
 
+#if wxCHECK_VERSION(2, 9, 2)
+      for(PatchList::iterator cnode = m_PatchList.begin(); cnode != m_PatchList.end(); cnode++)
+      {
+            if((*cnode)->ActiveRegion.Contains(p) == wxInRegion)
+            {
+                  ret = (*cnode)->dbIndex;
+                  break;
+            }
+      }
+#else
       wxPatchListNode *cnode = m_PatchList.GetFirst();
       while(cnode)
       {
@@ -800,6 +844,7 @@ int Quilt::GetChartdbIndexAtPix(wxPoint p)
             else
                   cnode = cnode->GetNext();
       }
+#endif
 
       m_bbusy = false;
       return ret;
@@ -815,6 +860,13 @@ ChartBase *Quilt::GetChartAtPix(wxPoint p)
       //    We generally will want the largest scale chart at this point, so
       //    walk the whole list.  The result will be the last one found, i.e. the largest scale chart.
       ChartBase *pret = NULL;
+#if wxCHECK_VERSION(2, 9, 2)
+      for(PatchList::iterator cnode = m_PatchList.begin(); cnode != m_PatchList.end(); cnode++)
+      {
+            if((*cnode)->ActiveRegion.Contains(p) == wxInRegion)
+                  pret = ChartData->OpenChartFromDB((*cnode)->dbIndex, FULL_INIT);
+      }
+#else
       wxPatchListNode *cnode = m_PatchList.GetFirst();
       while(cnode)
       {
@@ -822,6 +874,7 @@ ChartBase *Quilt::GetChartAtPix(wxPoint p)
                   pret = ChartData->OpenChartFromDB(cnode->GetData()->dbIndex, FULL_INIT);
             cnode = cnode->GetNext();
       }
+#endif
 
       m_bbusy = false;
       return pret;
@@ -848,12 +901,19 @@ ArrayOfInts Quilt::GetQuiltIndexArray(void)
 
       m_bbusy = true;
 
+#if wxCHECK_VERSION(2, 9, 2)
+      for(PatchList::iterator cnode = m_PatchList.begin(); cnode != m_PatchList.end(); cnode++)
+      {
+            ret.Add((*cnode)->dbIndex);
+      }
+#else
       wxPatchListNode *cnode = m_PatchList.GetFirst();
       while(cnode)
       {
             ret.Add(cnode->GetData()->dbIndex);
             cnode = cnode->GetNext();
       }
+#endif
 
       m_bbusy = false;
 
@@ -1586,6 +1646,26 @@ bool Quilt::Compose(const ViewPort &vp_in)
 #endif
 
 
+#if wxCHECK_VERSION(2, 9, 2)
+      //    Walk the PatchList, marking any entries whose projection does not match the determined quilt projection
+      //    Walk the PatchList, marking any entries which appear in the noshow array
+      for(PatchList::iterator pcinode = m_PatchList.begin(); pcinode != m_PatchList.end(); pcinode++)
+      {
+            QuiltPatch *piqp = *cnode;
+            if((piqp->ProjType != m_quilt_proj) && (piqp->ProjType != PROJECTION_UNKNOWN))
+                  piqp->b_Valid = false;
+            else {
+                 for(unsigned int ins=0 ; ins < g_quilt_noshow_index_array.GetCount() ; ins++)
+                 {
+                      if(g_quilt_noshow_index_array.Item(ins) == piqp->dbIndex)        // chart is in the noshow list
+                      {
+                           piqp->b_Valid = false;
+                           break;
+                      }
+                 }
+           }
+      }
+#else
       //    Walk the PatchList, marking any entries whose projection does not match the determined quilt projection
       for(unsigned int i=0 ; i < m_PatchList.GetCount() ; i++)
       {
@@ -1609,6 +1689,7 @@ bool Quilt::Compose(const ViewPort &vp_in)
                   }
             }
       }
+#endif
 
       //    If using chart database < 1.6
       //    Walk the list again, removing any skewed chart entries
@@ -1617,7 +1698,11 @@ bool Quilt::Compose(const ViewPort &vp_in)
             unsigned int il = 0;
             while(il < m_PatchList.GetCount())
             {
+#if wxCHECK_VERSION(2, 9, 2)
+                  PatchList::compatibility_iterator pcinode = m_PatchList.Item(il);
+#else
                   wxPatchListNode *pcinode = m_PatchList.Item(il);
+#endif
                   QuiltPatch *piqp = pcinode->GetData();
                   ChartBase *pc = ChartData->OpenChartFromDB(piqp->dbIndex, FULL_INIT);
 
@@ -1643,7 +1728,11 @@ bool Quilt::Compose(const ViewPort &vp_in)
 
       for(unsigned int i=0 ; i < m_PatchList.GetCount() ; i++)
       {
+#if wxCHECK_VERSION(2, 9, 2)
+            PatchList::compatibility_iterator pcinode = m_PatchList.Item(i);
+#else
             wxPatchListNode *pcinode = m_PatchList.Item(i);
+#endif
             QuiltPatch *piqp = pcinode->GetData();
 
             if(!piqp->b_Valid)                         // skip invalid entries
@@ -1658,8 +1747,13 @@ bool Quilt::Compose(const ViewPort &vp_in)
             //fetch and subtract regions for all larger scale charts
             for(unsigned int k = i+1 ; k < m_PatchList.GetCount() ; k++)
             {
-                  wxPatchListNode *pnode = m_PatchList.Item(k);
+#if wxCHECK_VERSION(2, 9, 2)
+                  PatchList::compatibility_iterator pnode = m_PatchList.Item(k);
                   QuiltPatch *pqp = pnode->GetData();
+#else
+                  wxPatchListNode *pnode = m_PatchList.Item(k);
+                  QuiltPatch *pqp = *pnode;
+#endif
 
                   if(!pqp->b_Valid)                         // skip invalid entries
                         continue;
@@ -1678,8 +1772,12 @@ bool Quilt::Compose(const ViewPort &vp_in)
             }
 
             //    Whatever is left in the vpr region must belong to the current target chart
+#if wxCHECK_VERSION(2, 9, 2)
+            QuiltPatch *pqpi = m_PatchList[i];
+#else
             wxPatchListNode *pinode = m_PatchList.Item(i);
             QuiltPatch *pqpi = pinode->GetData();
+#endif
             pqpi->ActiveRegion = vpr_region;
 
             //    Move the active region so that upper left is 0,0 in final render region
@@ -1702,11 +1800,17 @@ bool Quilt::Compose(const ViewPort &vp_in)
 
 
       //    Walk the list again, removing any entries marked as eclipsed....
+#if wxCHECK_VERSION(2, 9, 2)
+      for(PatchList::iterator pli = m_PatchList.begin(); pli != m_PatchList.end(); pli++)
+      {
+            QuiltPatch *piqp = *pli;
+#else
       unsigned int il = 0;
       while(il < m_PatchList.GetCount())
       {
             wxPatchListNode *pcinode = m_PatchList.Item(il);
             QuiltPatch *piqp = pcinode->GetData();
+#endif
             if(piqp->b_eclipsed)
             {
                   //    Make sure that this chart appears in the eclipsed list...
@@ -1723,16 +1827,21 @@ bool Quilt::Compose(const ViewPort &vp_in)
                   if(!b_noadd)
                         m_eclipsed_stack_array.Add(piqp->dbIndex);
 
-
+#if wxCHECK_VERSION(2, 9, 2)
+		  pli = m_PatchList.erase(pli);
+                  if(pli == m_PatchList.end()) break;
+#else
                   m_PatchList.DeleteNode(pcinode);
                   il = 0;           // restart the list walk
+#endif
             }
 //            else if(!piqp->b_valid)
 //            {
 //            }
-
+#if !wxCHECK_VERSION(2, 9, 2)
             else
                   il++;
+#endif
       }
 
       //    Mark the quilt to indicate need for background clear if the region is not fully covered
@@ -1756,6 +1865,12 @@ bool Quilt::Compose(const ViewPort &vp_in)
       m_index_array.Clear();
 
       //    The index array is to be built in reverse, largest scale first
+#if wxCHECK_VERSION(2, 9, 2)
+      for(PatchList::reverse_iterator pli = m_PatchList.rbegin(); pli != m_PatchList.rend(); pli++)
+      {
+            m_index_array.Add((*pli)->dbIndex);
+      }
+#else
       unsigned int kl = m_PatchList.GetCount();
       for(unsigned int k=0 ; k < kl ; k++)
       {
@@ -1763,6 +1878,7 @@ bool Quilt::Compose(const ViewPort &vp_in)
             m_index_array.Add(cnode->GetData()->dbIndex);
             cnode = cnode->GetNext();
       }
+#endif
 
       //    Walk the patch list again, checking the depth units
       //    If they are all the same, then the value is usable
@@ -1785,11 +1901,16 @@ bool Quilt::Compose(const ViewPort &vp_in)
             }
       }
 
-
+#if wxCHECK_VERSION(2, 9, 2)
+      for(PatchList::iterator pli = m_PatchList.begin(); pli != m_PatchList.end(); pli++)
+      {
+            QuiltPatch *pqp = *pli;
+#else
       for(unsigned int k = 0 ; k < m_PatchList.GetCount() ; k++)
       {
             wxPatchListNode *pnode = m_PatchList.Item(k);
             QuiltPatch *pqp = pnode->GetData();
+#endif
 
             if(!pqp->b_Valid)                         // skip invalid entries
                   continue;
@@ -1832,10 +1953,16 @@ bool Quilt::Compose(const ViewPort &vp_in)
      //    Walk the patch list again, checking the error factor
 
       m_max_error_factor = 0.;
+#if wxCHECK_VERSION(2, 9, 2)
+      for(PatchList::iterator pli = m_PatchList.begin(); pli != m_PatchList.end(); pli++)
+      {
+            QuiltPatch *pqp = *pli;
+#else
       for(unsigned int k = 0 ; k < m_PatchList.GetCount() ; k++)
       {
             wxPatchListNode *pnode = m_PatchList.Item(k);
             QuiltPatch *pqp = pnode->GetData();
+#endif
 
             if(!pqp->b_Valid)                         // skip invalid entries
                   continue;
@@ -1964,10 +2091,16 @@ bool Quilt::RenderQuiltRegionViewOnDC ( wxMemoryDC &dc, ViewPort &vp, wxRegion &
             {
                   //    Walk the PatchList, looking for the target hilite index
                   wxRect box(0,0,0,0);
+#if wxCHECK_VERSION(2, 9, 2)
+                  for(PatchList::iterator pli = m_PatchList.begin(); pli != m_PatchList.end(); pli++)
+                  {
+                        QuiltPatch *piqp = *pli;
+#else
                   for(unsigned int i=0 ; i < m_PatchList.GetCount() ; i++)
                   {
                         wxPatchListNode *pcinode = m_PatchList.Item(i);
                         QuiltPatch *piqp = pcinode->GetData();
+#endif
                         if((m_nHiLiteIndex == piqp->dbIndex) && (piqp->b_Valid))      // found it
                         {
                               box = piqp->ActiveRegion.GetBox();
@@ -3478,10 +3611,16 @@ void ChartCanvas::OnRouteLegPopupTimerEvent ( wxTimerEvent& event )
             //    Get a list of all selectable sgements, and search for the first visible segment as the rollover target.
 
             SelectableItemList SelList = pSelect->FindSelectionList(m_cursor_lat, m_cursor_lon,SELTYPE_ROUTESEGMENT,SelectRadius );
+#if wxCHECK_VERSION(2, 9, 2)
+            for(SelectableItemList::iterator sili = SelList.begin(); sili != SelList.end(); sili++)
+            {
+                  SelectItem *pFindSel = *sili;
+#else
             wxSelectableItemListNode *node = SelList.GetFirst();
             while ( node )
             {
                   SelectItem *pFindSel = node->GetData();
+#endif
 
                   Route *pr = ( Route * ) pFindSel->m_pData3;        //candidate
 
@@ -3531,8 +3670,10 @@ void ChartCanvas::OnRouteLegPopupTimerEvent ( wxTimerEvent& event )
                               break;
                         }
                   }
+#if !wxCHECK_VERSION(2, 9, 2)
                   else
                         node=node->GetNext();
+#endif
             }
       }
       else
@@ -5148,10 +5289,16 @@ void ChartCanvas::AISDrawTarget (AIS_Target_Data *td, wxDC& dc )
             //  If AIS tracks are shown, is the first point of the track on-screen?
             if(g_bAISShowTracks)
             {
+#if wxCHECK_VERSION(2, 9, 2)
+                  if(td->m_ptrack->begin() != td->m_ptrack->end())
+                  {
+                        AISTargetTrackPoint *ptrack_point = *td->m_ptrack->begin();
+#else
                   wxAISTargetTrackListNode *node = td->m_ptrack->GetFirst();
                   if(node)
                   {
                         AISTargetTrackPoint *ptrack_point = node->GetData();
+#endif
                         if ( VPoint.GetBBox().PointInBox ( ptrack_point->m_lon, ptrack_point->m_lat, 0 ) )
                               drawit++;
                   }
@@ -5683,6 +5830,27 @@ void ChartCanvas::AISDrawTarget (AIS_Target_Data *td, wxDC& dc )
 
                               wxGraphicsPath gpathc = pgc->CreatePath();
 
+#if wxCHECK_VERSION(2, 9, 2)
+			for(AISTargetTrackList::iterator atli = td->m_ptrack->begin(); atli != td->m_ptrack->end(); atli++)
+                        {
+                              AISTargetTrackPoint *ptrack_point = *atli;
+                              if(atli == td->m_ptrack->begin())
+                              {
+                                    GetCanvasPointPix ( ptrack_point->m_lat, ptrack_point->m_lon, &TrackPointA );
+
+                                    gpathc.MoveToPoint(TrackPointA.x, TrackPointA.y);
+                                    dc.CalcBoundingBox(TrackPointA.x, TrackPointA.y); // keep dc dirty box up-to-date
+
+                              }
+                              else
+                              {
+                                    GetCanvasPointPix ( ptrack_point->m_lat, ptrack_point->m_lon, &TrackPointB );
+
+                                    gpathc.AddLineToPoint(TrackPointB.x, TrackPointB.y);
+                                    dc.CalcBoundingBox(TrackPointB.x, TrackPointB.y); // keep dc dirty box up-to-date
+                              }
+                        }
+#else
                         //    First point
                               wxAISTargetTrackListNode *node = td->m_ptrack->GetFirst();
                               if(node)
@@ -5706,6 +5874,7 @@ void ChartCanvas::AISDrawTarget (AIS_Target_Data *td, wxDC& dc )
 
                                     node = node->GetNext();
                               }
+#endif
 
                               pgc->StrokePath(gpathc);
                        }
@@ -6626,10 +6795,16 @@ void ChartCanvas::MouseEvent ( wxMouseEvent& event )
 
                       SelectItem *pFind = NULL;
                       SelectableItemList SelList = pSelect->FindSelectionList(m_cursor_lat, m_cursor_lon,SELTYPE_ROUTEPOINT,SelectRadius );
+#if wxCHECK_VERSION(2, 9, 2)
+                     for(SelectableItemList::iterator sili = SelList.begin(); sili != SelList.end(); sili++)
+                     {
+                            pFind = *sili;
+#else
                       wxSelectableItemListNode *node = SelList.GetFirst();
                       while ( node )
                       {
                             pFind = node->GetData();
+#endif
 
                             RoutePoint *frp = ( RoutePoint * ) pFind->m_pData1;
 
@@ -6677,7 +6852,9 @@ void ChartCanvas::MouseEvent ( wxMouseEvent& event )
                                     break;            // out of the while(node)
                               }
 
+#if !wxCHECK_VERSION(2, 9, 2)
                               node=node->GetNext();
+#endif
                       }       // while (node)
 
                 }                   // else
@@ -7037,10 +7214,16 @@ void ChartCanvas::MouseEvent ( wxMouseEvent& event )
 
                             //There is at least one routepoint, so get the whole list
                             SelectableItemList SelList = pSelect->FindSelectionList(slat, slon,SELTYPE_ROUTEPOINT,SelectRadius );
+#if wxCHECK_VERSION(2, 9, 2)
+                            for(SelectableItemList::iterator sili = SelList.begin(); sili != SelList.end(); sili++)
+                            {
+                             SelectItem *pFindSel = *sili;
+#else
                             wxSelectableItemListNode *node = SelList.GetFirst();
                             while ( node )
                             {
                              SelectItem *pFindSel = node->GetData();
+#endif
 
                              RoutePoint *prp = ( RoutePoint * ) pFindSel->m_pData1;        //candidate
 
@@ -7102,7 +7285,9 @@ void ChartCanvas::MouseEvent ( wxMouseEvent& event )
                                         delete proute_array;
                                   }
 
+#if !wxCHECK_VERSION(2, 9, 2)
                                   node = node->GetNext();
+#endif
                             }
 
                             //      Now choose the "best" selections
@@ -7140,10 +7325,16 @@ void ChartCanvas::MouseEvent ( wxMouseEvent& event )
                             if(NULL == m_pSelectedRoute)  // the case where a segment only is selected
                             {
                                   //  Choose the first visible route containing segment in the list
+#if wxCHECK_VERSION(2, 9, 2)
+                                  for(SelectableItemList::iterator sili = SelList.begin(); sili != SelList.end(); sili++)
+                                  {
+                                        SelectItem *pFindSel = *sili;
+#else
                                   wxSelectableItemListNode *node = SelList.GetFirst();
                                   while ( node )
                                   {
                                         SelectItem *pFindSel = node->GetData();
+#endif
 
                                         Route *pr = (Route *)pFindSel->m_pData3;
                                         if(pr->IsVisible())
@@ -7151,7 +7342,9 @@ void ChartCanvas::MouseEvent ( wxMouseEvent& event )
                                               m_pSelectedRoute = pr;
                                               break;
                                         }
+#if !wxCHECK_VERSION(2, 9, 2)
                                         node = node->GetNext();
+#endif
                                   }
                             }
 
@@ -7842,11 +8035,17 @@ void ChartCanvas::PopupMenuHandler ( wxCommandEvent& event )
 
 
                                 int ndescriptions = 0;
+#if wxCHECK_VERSION(2, 9, 2)
+                                for(ListOfObjRazRules::iterator li = rule_list->begin(); li != rule_list->end(); li++)
+                                {       {
+                                                ObjRazRules *current = *li;
+#else
                                 if ( !rule_list->IsEmpty() )
                                 {
                                         for ( ListOfObjRazRules::Node *node = rule_list->GetFirst(); node; node = node->GetNext() )
                                         {
                                                 ObjRazRules *current = node->GetData();
+#endif
 
                                                 pdescription = Chs57->CreateObjDescription ( current );
                                                 QueryResult->Append ( pdescription->Attributes );
@@ -9763,10 +9962,16 @@ void ChartCanvas::DrawAllRoutesInBBox ( wxDC& dc, LLBBox& BltBBox, const wxRegio
 
         dc.DestroyClippingRegion();
         wxDCClipper(dc, clipregion);
+#if wxCHECK_VERSION(2, 9, 2)
+        for(RouteList::iterator rli = pRouteList->begin(); rli != pRouteList->end(); rli++)
+        {
+                Route *pRouteDraw = *rli;
+#else
         wxRouteListNode *node = pRouteList->GetFirst();
         while ( node )
         {
                 Route *pRouteDraw = node->GetData();
+#endif
                 if ( pRouteDraw )
                 {
                       if ( BltBBox.Intersect ( pRouteDraw->RBBox, 0 ) != _OUT ) // Route is not wholly outside window
@@ -9777,8 +9982,9 @@ void ChartCanvas::DrawAllRoutesInBBox ( wxDC& dc, LLBBox& BltBBox, const wxRegio
                                   pRouteDraw->Draw ( dc, VPoint );
                       }
                 }
-
+#if !wxCHECK_VERSION(2, 9, 2)
                 node = node->GetNext();
+#endif
         }
 
         //  Draw any active or selected route last, so that is is always on top
@@ -9791,16 +9997,25 @@ void ChartCanvas::DrawAllWaypointsInBBox ( wxDC& dc, LLBBox& BltBBox, const wxRe
 {
 //        wxBoundingBox bbx;
         wxDCClipper(dc, clipregion);
+#if wxCHECK_VERSION(2, 9, 2)
+        for(RoutePointList::iterator rpli = pWayPointMan->m_pWayPointList->begin();
+               rpli != pWayPointMan->m_pWayPointList->end(); rpli++)
+        {
+                RoutePoint *pWP = *rpli;
+#else
         wxRoutePointListNode *node = pWayPointMan->m_pWayPointList->GetFirst();
 
         while ( node )
         {
                 RoutePoint *pWP = node->GetData();
+#endif
                 if ( pWP )
                 {
                         if ( ( bDrawMarksOnly ) && ( pWP->m_bIsInRoute || pWP->m_bIsInTrack ) )
                         {
+#if !wxCHECK_VERSION(2, 9, 2)
                                 node = node->GetNext();
+#endif
                                 continue;
                         }
                         else
@@ -9813,7 +10028,9 @@ void ChartCanvas::DrawAllWaypointsInBBox ( wxDC& dc, LLBBox& BltBBox, const wxRe
                         }
                 }
 
+#if !wxCHECK_VERSION(2, 9, 2)
                 node = node->GetNext();
+#endif
         }
 
         // draw anchor watch rings, if activated                          // pjotrc 2010.02.22

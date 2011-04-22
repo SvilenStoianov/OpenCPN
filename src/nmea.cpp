@@ -1299,7 +1299,8 @@ ret_point:
             //    Send out the waypoints, in order
             if ( bsend_waypoints )
             {
-                  wxRoutePointListNode *node = pr->pRoutePointList->GetFirst();
+                  //wxRoutePointListNode *node = pr->pRoutePointList->GetFirst();
+                  RoutePointList::compatibility_iterator node = pr->pRoutePointList->GetFirst();
 
                   int ip = 1;
                   while ( node )
@@ -1352,7 +1353,8 @@ ret_point:
             oNMEA0183.Rte.message_number               = 1;
 
             //    add the waypoints
-            wxRoutePointListNode *node = pr->pRoutePointList->GetFirst();
+            //wxRoutePointListNode *node = pr->pRoutePointList->GetFirst();
+            RoutePointList::compatibility_iterator node = pr->pRoutePointList->GetFirst();
             while ( node )
             {
                   RoutePoint *prp = node->GetData();
@@ -3609,7 +3611,8 @@ int ComPortManager::OpenComPort(wxString &com_name, int baud_rate)
 int ComPortManager::CloseComPort(int fd)
 {
 
-      for ( ListOfOpenCommPorts::Node *node = m_port_list.GetFirst(); node; node = node->GetNext() )
+      //for ( ListOfOpenCommPorts::Node *node = m_port_list.GetFirst(); node; node = node->GetNext() )
+      for ( ListOfOpenCommPorts::compatibility_iterator node = m_port_list.GetFirst(); node; node = node->GetNext() )
       {
             OpenCommPortElement *current = node->GetData();
 
@@ -3648,7 +3651,8 @@ int ComPortManager::CloseComPort(int fd)
 
 OpenCommPortElement *ComPortManager::GetComPort(wxString &com_name)
 {
-      for ( ListOfOpenCommPorts::Node *node = m_port_list.GetFirst(); node; node = node->GetNext() )
+      //for ( ListOfOpenCommPorts::Node *node = m_port_list.GetFirst(); node; node = node->GetNext() )
+      for ( ListOfOpenCommPorts::compatibility_iterator node = m_port_list.GetFirst(); node; node = node->GetNext() )
       {
             OpenCommPortElement *current = node->GetData();
 

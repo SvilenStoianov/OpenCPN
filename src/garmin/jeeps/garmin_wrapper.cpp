@@ -93,7 +93,8 @@ int Garmin_GPS_SendWaypoints(ComPortManager *pPortMan, wxString &port_name, Rout
       for(int i=0 ; i < nPoints ; i++)
       {
             GPS_PWay pway = ppway[i];
-            wxRoutePointListNode *node = wplist->Item(i);
+            //wxRoutePointListNode *node = wplist->Item(i);
+            RoutePointList::compatibility_iterator node = wplist->Item(i);
             RoutePoint *prp = node->GetData();
 
             pway->lat = prp->m_lat;
@@ -161,7 +162,8 @@ GPS_SWay **Garmin_GPS_Create_A200_Route(Route *pr, int route_number, int *size)
       for(int i=1 ; i < *size ; i++)
       {
             GPS_PWay pway = ppway[i];
-            wxRoutePointListNode *node = wplist->Item(i-1);
+            //wxRoutePointListNode *node = wplist->Item(i-1);
+            RoutePointList::compatibility_iterator node = wplist->Item(i-1);
             RoutePoint *prp = node->GetData();
 
             pway->lat = prp->m_lat;
@@ -223,7 +225,8 @@ GPS_SWay **Garmin_GPS_Create_A201_Route(Route *pr, int route_number, int *size)
 	    if (i % 2 == 1) /* Odd */
 	    {
 	          GPS_PWay pway = ppway[i];
-                  wxRoutePointListNode *node = wplist->Item((i-1)/2);
+                  //wxRoutePointListNode *node = wplist->Item((i-1)/2);
+                  RoutePointList::compatibility_iterator node = wplist->Item((i-1)/2);
                   RoutePoint *prp = node->GetData();
 
                   pway->lat = prp->m_lat;

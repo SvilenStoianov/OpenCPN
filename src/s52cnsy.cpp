@@ -694,7 +694,8 @@ static wxString *_UDWHAZ03(S57Obj *obj, double depth_value, ObjRazRules *rzRules
 
         ListOfS57Obj *pobj_list = rzRules->chart->GetAssociatedObjects(obj);
 
-        wxListOfS57ObjNode *node = pobj_list->GetFirst();
+        //wxListOfS57ObjNode *node = pobj_list->GetFirst();
+        ListOfS57Obj::compatibility_iterator node = pobj_list->GetFirst();
         while(node)
         {
               S57Obj *ptest_obj = node->GetData();

@@ -2187,7 +2187,8 @@ MyFrame::~MyFrame()
         delete pCurrentStack;
 
 //      Free the Route List
-        wxRouteListNode *node = pRouteList->GetFirst();
+        //wxRouteListNode *node = pRouteList->GetFirst();
+        RouteList::compatibility_iterator node = pRouteList->GetFirst();
 
         while(node)
         {
@@ -3382,7 +3383,8 @@ void MyFrame::OnCloseWindow(wxCloseEvent& event)
                   //    First, delete any single anchorage waypoint closer than 0.25 NM from this point
                   //    This will prevent clutter and database congestion....
 
-                  wxRoutePointListNode *node = pWayPointMan->m_pWayPointList->GetFirst();
+                  //wxRoutePointListNode *node = pWayPointMan->m_pWayPointList->GetFirst();
+                  RoutePointList::compatibility_iterator node = pWayPointMan->m_pWayPointList->GetFirst();
                   while(node)
                   {
                         RoutePoint *pr = node->GetData();

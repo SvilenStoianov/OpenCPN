@@ -4720,7 +4720,7 @@ void s57chart::CreateSENCRecord( OGRFeature *pFeature, FILE * fpOut, int mode, S
             sheader += wxString(line, wxConvUTF8);
         }
 
-        fprintf( fpOut, "HDRLEN=%d\n", sheader.Len());
+        fprintf( fpOut, "HDRLEN=%d\n", (int)sheader.Len());
         fwrite(sheader.mb_str(wxConvUTF8), 1, sheader.Len(), fpOut);
 
         if(( pGeo != NULL ) /*&& (mode == 1)*/)
