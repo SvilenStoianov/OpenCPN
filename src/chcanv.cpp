@@ -8887,7 +8887,6 @@ void ChartCanvas::OnPaint ( wxPaintEvent& event )
                     dc.Clear();
                     return;
               }
-
               Current_Ch->RenderRegionViewOnDC(temp_dc, svp, chart_get_region);
         }
 
@@ -10440,6 +10439,9 @@ TCWin::TCWin ( ChartCanvas *parent, int x, int y, void *pvIDX )
         //    will not detract from night-vision
 
         long wstyle = wxCLIP_CHILDREN | wxDEFAULT_DIALOG_STYLE;
+#ifdef __WXOSX_COCOA__
+        wstyle |= wxSTAY_ON_TOP;
+#endif
         if ( global_color_scheme != GLOBAL_COLOR_SCHEME_DAY )
                 wstyle |= ( wxNO_BORDER );
 
@@ -10571,24 +10573,35 @@ TCWin::TCWin ( ChartCanvas *parent, int x, int y, void *pvIDX )
 
         OK_button = new wxButton ( this, wxID_OK, _( "OK" ),
                                    wxPoint ( sx - 100, sy - 32 ), wxDefaultSize );
+#ifndef __WXOSX_COCOA__
         OK_button->SetBackgroundColour ( GetGlobalColor ( _T ( "DILG2" ) ) );
             OK_button->SetForegroundColour ( GetGlobalColor ( _T ( "DILG3" ) ) );
+#endif
 
 
 
         PR_button = new wxButton ( this, ID_TCWIN_PR, _( "Prev" ),
+#ifdef __WXOSX_COCOA__
+                                   wxPoint ( 10 , sy - 32 ), wxDefaultSize );
+#else
                                    wxPoint ( 10 , sy - 32 ), wxSize ( 40, -1 ) );
+
         PR_button->SetBackgroundColour ( GetGlobalColor ( _T ( "DILG2" ) ) );
             PR_button->SetForegroundColour ( GetGlobalColor ( _T ( "DILG3" ) ) );
+#endif;
 
         int bsx, bsy, bpx, bpy;
         PR_button->GetSize ( &bsx, &bsy );
         PR_button->GetPosition ( &bpx, &bpy );
 
         NX_button = new wxButton ( this, ID_TCWIN_NX, _( "Next" ),
+#ifdef __WXOSX_COCOA__
+                                   wxPoint ( bpx + bsx + 5, sy - 32 ), wxDefaultSize );
+#else
                                    wxPoint ( bpx + bsx + 5, bpy ), wxSize ( 40, -1 ) );
         NX_button->SetBackgroundColour ( GetGlobalColor ( _T ( "DILG2" ) ) );
             NX_button->SetForegroundColour ( GetGlobalColor ( _T ( "DILG3" ) ) );
+#endif
 
             m_TCWinPopupTimer.SetOwner(this, TCWININF_TIMER);
 
@@ -11099,7 +11112,6 @@ void TCWin::OnSize ( wxSizeEvent& event )
 
 void TCWin::MouseEvent ( wxMouseEvent& event )
 {
-
         event.GetPosition ( &curs_x, &curs_y );
         if(HasCapture())
             ReleaseMouse();                                             //in case the mouse have been captured in "OnTCwinPoupTimerEvent"
@@ -11114,13 +11126,14 @@ void TCWin::OnTCWinPopupTimerEvent ( wxTimerEvent& event )
 
             int x,y;
             bool ShowRollover;
-
             GetClientSize ( &x, &y );
             wxRegion cursorarea(( x * 9/100 ) , ( y * 22/100 ) , ( x * 81/100) , ( y * 58/100 ));
 
             if ( cursorarea.Contains(curs_x,curs_y) )
             {
+#ifndef __WXOSX_COCOA__ // conflicts with mouse event in cocoa ?
                   CaptureMouse();                                             //the cursor can move into the rollover
+#endif
                   ShowRollover = true ;
                   SetCursor(*pParent->pCursorCross);
                   if( NULL == m_pTCRolloverWin )

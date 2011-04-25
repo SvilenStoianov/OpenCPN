@@ -320,7 +320,7 @@ int wxCALLBACK SortLayersOnName(long item1, long item2, long list)
 // sort callback. Sort by layer size.
 int sort_layer_len_dir;
 #if wxCHECK_VERSION(2, 9, 0)
-int wxCALLBACK SortTracksOnDistance(long item1, long item2, wxIntPtr list)
+int wxCALLBACK SortLayersOnSize(long item1, long item2, wxIntPtr list)
 #else
 int wxCALLBACK SortLayersOnSize(long item1, long item2, long list)
 #endif

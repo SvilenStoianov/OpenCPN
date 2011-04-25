@@ -1986,8 +1986,14 @@ void Route::UpdateSegmentDistances(double planspeed)
                         prp0->m_seg_etd = wxInvalidDateTime;
                         if (prp0->m_MarkDescription.Find(_T("ETD="))!= wxNOT_FOUND) {
                               wxString s_etd = (prp0->m_MarkDescription.Mid(prp0->m_MarkDescription.Find(_T("ETD="))+4)).BeforeFirst(';');
+#if wxCHECK_VERSION(2, 9, 2)
+			      wxString::const_iterator end;
+                              if(etd.ParseDateTime(s_etd, &end) && end != s_etd.end()) {
+                                    wxString tz(end, s_etd.end());
+#else
                               wxString tz = etd.ParseDateTime(s_etd);
                               if (tz) {
+#endif
                                     if (tz.Find(_T("UT")) != wxNOT_FOUND)
                                           prp0->m_seg_etd = etd;
                                     else
